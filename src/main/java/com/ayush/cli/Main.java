@@ -1,6 +1,7 @@
 package com.ayush.cli;
 
 import com.ayush.core.SearchEngine;
+import com.ayush.persistence.IndexPersistence;
 
 /**
  * Application entry point for the MiniSearch command-line interface.
@@ -15,6 +16,6 @@ public final class Main {
      * @param args command-line arguments (currently unused)
      */
     public static void main(String[] args) {
-        new SearchCli(new SearchEngine(), System.in, System.out).run();
+        new SearchCli(new SearchEngine(), System.in, System.out, new IndexPersistence()).run();
     }
 }

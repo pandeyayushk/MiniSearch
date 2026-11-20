@@ -3,6 +3,7 @@ package com.ayush.cli;
 import com.ayush.core.SearchEngine;
 import com.ayush.model.SearchResult;
 import com.ayush.model.Snippet;
+import com.ayush.persistence.IndexPersistence;
 
 import java.io.IOException;
 import java.io.InputStream;
@@ -20,6 +21,8 @@ public class SearchCli {
     private final SearchEngine searchEngine;
     private final InputStream input;
     private final PrintStream output;
+    private final IndexPersistence indexPersistence;
+    private boolean persistenceInitialized;
 
     /**
      * Creates a CLI using injected search and terminal components.
@@ -29,15 +32,30 @@ public class SearchCli {
      * @param output output stream
      */
     public SearchCli(SearchEngine searchEngine, InputStream input, PrintStream output) {
+        this(searchEngine, input, output, null);
+    }
+
+    /**
+     * Creates a CLI with persistent index storage.
+     *
+     * @param searchEngine persistent engine for this CLI session
+     * @param input command input stream
+     * @param output output stream
+     * @param indexPersistence persistence store to restore and save
+     */
+    public SearchCli(SearchEngine searchEngine, InputStream input, PrintStream output,
+                     IndexPersistence indexPersistence) {
         this.searchEngine = Objects.requireNonNull(searchEngine, "Search engine cannot be null");
         this.input = Objects.requireNonNull(input, "Input stream cannot be null");
         this.output = Objects.requireNonNull(output, "Output stream cannot be null");
+        this.indexPersistence = indexPersistence;
     }
 
     /**
      * Runs commands until the user enters {@code exit} or input ends.
      */
     public void run() {
+        initializePersistence();
         Scanner scanner = new Scanner(input, java.nio.charset.StandardCharsets.UTF_8);
         output.println("MiniSearch CLI. Type 'help' for available commands.");
         while (scanner.hasNextLine()) {
@@ -63,6 +81,26 @@ public class SearchCli {
         }
     }
 
+    private void initializePersistence() {
+        if (persistenceInitialized || indexPersistence == null) {
+            return;
+        }
+        persistenceInitialized = true;
+        if (!indexPersistence.exists()) {
+            output.println("No saved index found. Starting with an empty index.");
+            return;
+        }
+        try {
+            var documents = indexPersistence.load();
+            searchEngine.restoreDocuments(documents);
+            output.println("Restored " + documents.size() + " document(s) from the saved index.");
+        } catch (IOException | RuntimeException exception) {
+            searchEngine.clear();
+            output.println("Could not load saved index: " + exception.getMessage());
+            output.println("Starting with an empty index. The saved file was left unchanged.");
+        }
+    }
+
     private void indexDirectory(String directory) {
         if (directory.isBlank()) {
             output.println("Usage: index <folder>");
@@ -73,6 +111,14 @@ public class SearchCli {
             searchEngine.indexDirectory(path);
             output.println("Indexed directory: " + path);
             output.println("Documents indexed: " + searchEngine.getIndexedDocumentCount());
+            if (indexPersistence != null) {
+                try {
+                    indexPersistence.save(searchEngine.getIndexedDocuments());
+                    output.println("Saved index to " + indexPersistence.path());
+                } catch (IOException exception) {
+                    output.println("Could not save index: " + exception.getMessage());
+                }
+            }
         } catch (IllegalArgumentException exception) {
             output.println("Invalid directory: " + exception.getMessage());
         } catch (IOException exception) {
