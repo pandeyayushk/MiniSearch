@@ -34,7 +34,7 @@ class SearchEngineTest {
         FixedDocumentLoader loader = new FixedDocumentLoader(List.of(document("doc.md", "java")));
         Tokenizer tokenizer = new Tokenizer();
         InvertedIndex index = new InvertedIndex(tokenizer);
-        SearchEngine engine = new SearchEngine(loader, tokenizer, index);
+        SearchEngine engine = new SearchEngine(loader, tokenizer, index, new TfIdfRanker(tokenizer));
 
         assertNotNull(engine);
     }
@@ -48,6 +48,8 @@ class SearchEngineTest {
         assertThrows(NullPointerException.class, () -> new SearchEngine(new DocumentLoader(), null, index));
         assertThrows(NullPointerException.class,
                 () -> new SearchEngine(new DocumentLoader(), tokenizer, null));
+        assertThrows(NullPointerException.class,
+                () -> new SearchEngine(new DocumentLoader(), tokenizer, index, null));
     }
 
     @Test
@@ -78,7 +80,7 @@ class SearchEngineTest {
         List<SearchResult> results = engine.search("java java JAVA concurrency");
 
         assertEquals(1, results.size());
-        assertEquals(2, results.getFirst().score());
+        assertEquals(1.0, results.getFirst().score(), 1e-12);
         assertEquals(java.util.Set.of("java", "concurrency"), results.getFirst().matchedTerms());
     }
 
@@ -128,7 +130,12 @@ class SearchEngineTest {
         List<SearchResult> results = engine.search("java concurrency threads");
 
         assertEquals(List.of("z-top.md", "a-tie.md", "b-tie.md", "c-one.md"), ids(results));
-        assertEquals(List.of(3, 2, 2, 1), results.stream().map(SearchResult::score).toList());
+        double expectedTopScore = (1.0 + (Math.log(5.0 / 4.0) + 1.0)
+                + (Math.log(5.0 / 2.0) + 1.0)) / 3.0;
+        assertEquals(expectedTopScore, results.getFirst().score(), 1e-12);
+        assertTrue(results.get(0).score() > results.get(1).score());
+        assertEquals(results.get(1).score(), results.get(2).score(), 1e-12);
+        assertTrue(results.get(2).score() > results.get(3).score());
     }
 
     @Test
