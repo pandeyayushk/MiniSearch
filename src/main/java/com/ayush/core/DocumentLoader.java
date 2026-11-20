@@ -6,13 +6,14 @@ import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.FileVisitOption;
 import java.nio.file.Files;
-import java.nio.file.InvalidPathException;
+import java.nio.file.LinkOption;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Locale;
 import java.util.Objects;
+import java.io.UncheckedIOException;
 import java.util.stream.Stream;
 
 /**
@@ -42,11 +43,13 @@ public class DocumentLoader {
 
         List<Path> supportedFiles = new ArrayList<>();
         try (Stream<Path> paths = Files.walk(rootDirectory, new FileVisitOption[0])) {
-            paths.filter(Files::isRegularFile)
+            paths.filter(path -> Files.isRegularFile(path, LinkOption.NOFOLLOW_LINKS))
                     .filter(DocumentLoader::isSupported)
                     .forEach(supportedFiles::add);
         } catch (IOException exception) {
             throw new IOException("Failed to discover documents under " + rootDirectory, exception);
+        } catch (UncheckedIOException exception) {
+            throw new IOException("Failed to discover documents under " + rootDirectory, exception.getCause());
         }
 
         supportedFiles.sort(Comparator.comparing(path -> toDocumentId(rootDirectory.relativize(path))));
@@ -56,7 +59,7 @@ public class DocumentLoader {
             try {
                 String content = Files.readString(file, StandardCharsets.UTF_8);
                 documents.add(new Document(id, file, content));
-            } catch (IOException | InvalidPathException exception) {
+            } catch (IOException exception) {
                 throw new IOException("Failed to read supported document: " + file, exception);
             }
         }
