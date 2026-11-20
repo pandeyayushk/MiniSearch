@@ -31,6 +31,20 @@ class SearchEngineTest {
     }
 
     @Test
+    void snapshotsAreImmutableAndRestorationRebuildsSearchIndex() {
+        SearchEngine original = new SearchEngine();
+        original.restoreDocuments(List.of(document("guide.md", "java java threads")));
+        List<Document> snapshot = original.getIndexedDocuments();
+        assertThrows(UnsupportedOperationException.class, snapshot::clear);
+
+        SearchEngine restored = new SearchEngine();
+        restored.restoreDocuments(snapshot);
+        assertEquals(1, restored.getIndexedDocumentCount());
+        assertEquals(List.of("guide.md"), ids(restored.search("java")));
+        assertEquals("java java threads", restored.getIndexedDocuments().getFirst().content());
+    }
+
+    @Test
     void constructorAcceptsInjectedDependencies() {
         FixedDocumentLoader loader = new FixedDocumentLoader(List.of(document("doc.md", "java")));
         Tokenizer tokenizer = new Tokenizer();

@@ -5,10 +5,7 @@ import com.ayush.model.SearchResult;
 
 import java.io.IOException;
 import java.nio.file.Path;
-import java.util.LinkedHashSet;
-import java.util.List;
-import java.util.Objects;
-import java.util.Set;
+import java.util.*;
 
 /**
  * Coordinates document loading, indexing, and ranked search.
@@ -74,9 +71,8 @@ public class SearchEngine {
      * @throws IOException if document loading fails
      */
     public void indexDirectory(Path directory) throws IOException {
-        for (Document document : documentLoader.load(directory)) {
-            invertedIndex.addDocument(document);
-        }
+        List<Document> loadedDocuments = documentLoader.load(directory);
+        invertedIndex.replaceDocuments(loadedDocuments);
     }
 
     /**
@@ -112,6 +108,25 @@ public class SearchEngine {
      */
     public int getIndexedDocumentCount() {
         return invertedIndex.getDocumentCount();
+    }
+
+    /**
+     * Returns an immutable snapshot of the indexed documents sorted by ID.
+     *
+     * @return immutable document snapshot
+     */
+    public List<Document> getIndexedDocuments() {
+        return invertedIndex.getDocumentsSnapshot();
+    }
+
+    /**
+     * Replaces the current indexed documents and rebuilds all postings.
+     *
+     * @param documents documents to restore
+     */
+    public void restoreDocuments(Collection<Document> documents) {
+        List<Document> validatedDocuments = List.copyOf(Objects.requireNonNull(documents, "Documents cannot be null"));
+        invertedIndex.replaceDocuments(validatedDocuments);
     }
 
     /**

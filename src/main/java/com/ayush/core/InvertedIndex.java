@@ -3,6 +3,7 @@ package com.ayush.core;
 import com.ayush.model.Document;
 
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
@@ -13,8 +14,8 @@ import java.util.Set;
 public class InvertedIndex {
 
     private final Tokenizer tokenizer;
-    private final Map<String, Map<String, Integer>> postings = new HashMap<>();
-    private final Map<String, Document> documents = new HashMap<>();
+    private Map<String, Map<String, Integer>> postings = new HashMap<>();
+    private Map<String, Document> documents = new HashMap<>();
 
     /**
      * Creates an inverted index using the standard tokenizer.
@@ -52,6 +53,21 @@ public class InvertedIndex {
         termFrequencies.forEach((term, frequency) ->
                 postings.computeIfAbsent(term, ignored -> new HashMap<>())
                         .put(document.id(), frequency));
+    }
+
+    /**
+     * Rebuilds the index from a collection of documents, replacing its current contents only
+     * after the replacement postings have been prepared successfully.
+     *
+     * @param replacementDocuments documents to index
+     */
+    public void replaceDocuments(java.util.Collection<Document> replacementDocuments) {
+        List<Document> validatedDocuments = List.copyOf(
+                Objects.requireNonNull(replacementDocuments, "Documents cannot be null"));
+        InvertedIndex replacement = new InvertedIndex(tokenizer);
+        validatedDocuments.forEach(replacement::addDocument);
+        documents = replacement.documents;
+        postings = replacement.postings;
     }
 
     /**
@@ -136,6 +152,17 @@ public class InvertedIndex {
      */
     public int getDocumentCount() {
         return documents.size();
+    }
+
+    /**
+     * Returns an immutable snapshot of all indexed documents.
+     *
+     * @return documents sorted by document ID
+     */
+    public List<Document> getDocumentsSnapshot() {
+        return documents.values().stream()
+                .sorted(java.util.Comparator.comparing(Document::id))
+                .toList();
     }
 
     /**
