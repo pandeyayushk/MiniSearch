@@ -66,13 +66,13 @@ public class TfIdfRanker {
     public double calculateIdf(String term, InvertedIndex index) {
         Objects.requireNonNull(term, "Term cannot be null");
         Objects.requireNonNull(index, "Index cannot be null");
-        int documentCount = index.getDocumentCount();
-        if (documentCount == 0) {
-            return 0.0;
-        }
         List<String> normalizedTerm = tokenizer.tokenize(term);
         if (normalizedTerm.size() != 1) {
             throw new IllegalArgumentException("Term must normalize to exactly one token");
+        }
+        int documentCount = index.getDocumentCount();
+        if (documentCount == 0) {
+            return 0.0;
         }
         int documentFrequency = index.search(normalizedTerm.getFirst()).size();
         return Math.log((documentCount + 1.0) / (documentFrequency + 1.0)) + 1.0;

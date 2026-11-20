@@ -48,6 +48,14 @@ class TfIdfRankerTest {
     }
 
     @Test
+    void rejectsInvalidTermAgainstEmptyIndex() {
+        InvertedIndex emptyIndex = new InvertedIndex(tokenizer);
+
+        assertThrows(IllegalArgumentException.class, () -> ranker.calculateIdf("java python", emptyIndex));
+        assertThrows(IllegalArgumentException.class, () -> ranker.calculateIdf("!!!", emptyIndex));
+    }
+
+    @Test
     void calculatesCombinedScoreForDistinctTermsAndIgnoresMissingTerms() {
         InvertedIndex index = new InvertedIndex(tokenizer);
         Document document = document("one", "java java python");
