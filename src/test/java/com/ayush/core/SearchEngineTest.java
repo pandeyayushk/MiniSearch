@@ -10,6 +10,7 @@ import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.List;
+import java.util.Set;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
@@ -185,6 +186,54 @@ class SearchEngineTest {
 
         assertThrows(UnsupportedOperationException.class, () -> results.clear());
         assertEquals(1, engine.search("java").size());
+    }
+
+    @Test
+    void resultsIncludeSnippetsForTheirDocumentWithOnlyLocalMatchingTerms() throws IOException {
+        Path root = newRoot();
+        write(root, "first.md", "Java Java appears here.");
+        write(root, "second.md", "Thread appears here.");
+        SearchEngine engine = new SearchEngine();
+        engine.indexDirectory(root);
+
+        List<SearchResult> results = engine.search("java thread absent");
+
+        assertEquals(2, results.size());
+        SearchResult first = results.stream().filter(result -> result.document().id().equals("first.md")).findFirst().orElseThrow();
+        SearchResult second = results.stream().filter(result -> result.document().id().equals("second.md")).findFirst().orElseThrow();
+        double idf = Math.log(3.0 / 2.0) + 1.0;
+        assertEquals(idf / 2.0, first.score(), 1e-12);
+        assertEquals(idf / 3.0, second.score(), 1e-12);
+        assertEquals(1, first.snippets().size());
+        assertEquals(1, second.snippets().size());
+        assertEquals(Set.of("java"), first.snippets().getFirst().matchedTerms());
+        assertEquals(Set.of("thread"), second.snippets().getFirst().matchedTerms());
+        assertEquals(first.document().content(), first.snippets().getFirst().text());
+        assertEquals(second.document().content(), second.snippets().getFirst().text());
+    }
+
+    @Test
+    void snippetsDoNotChangeTfIdfScoresOrExistingResultOrder() throws IOException {
+        Path root = newRoot();
+        write(root, "b.md", "java concurrency");
+        write(root, "a.md", "java java");
+        write(root, "c.md", "concurrency");
+        SearchEngine engine = new SearchEngine();
+        engine.indexDirectory(root);
+
+        List<SearchResult> results = engine.search("java concurrency");
+
+        assertEquals(List.of("a.md", "b.md", "c.md"), ids(results));
+        double idf = Math.log(4.0 / 3.0) + 1.0;
+        assertEquals(idf, results.get(0).score(), 1e-12);
+        assertEquals(idf, results.get(1).score(), 1e-12);
+        assertEquals(idf, results.get(2).score(), 1e-12);
+        assertTrue(results.stream().allMatch(result -> !result.snippets().isEmpty()));
+    }
+
+    @Test
+    void emptySearchResultsRemainEmpty() {
+        assertTrue(new SearchEngine().search("no matching terms").isEmpty());
     }
 
     private SearchEngine indexFiles(String relativePath, String content) throws IOException {

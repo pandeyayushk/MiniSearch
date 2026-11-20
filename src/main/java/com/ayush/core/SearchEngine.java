@@ -19,12 +19,14 @@ public class SearchEngine {
     private final Tokenizer tokenizer;
     private final InvertedIndex invertedIndex;
     private final TfIdfRanker ranker;
+    private final SnippetGenerator snippetGenerator;
+    private static final int DEFAULT_MAX_SNIPPET_LENGTH = 240;
 
     /**
      * Creates a search engine with the standard components.
      */
     public SearchEngine() {
-        this(new DocumentLoader(), new Tokenizer(), new InvertedIndex(), new TfIdfRanker());
+        this(new DocumentLoader(), new Tokenizer(), new InvertedIndex(), new TfIdfRanker(), new SnippetGenerator());
     }
 
     /**
@@ -34,14 +36,24 @@ public class SearchEngine {
      * @param tokenizer component used to normalize queries
      * @param invertedIndex component used to store and retrieve indexed documents
      * @param ranker component used to calculate TF-IDF scores and rank results
+     * @param snippetGenerator component used to extract matching passages
      * @throws NullPointerException if any dependency is {@code null}
      */
     public SearchEngine(DocumentLoader documentLoader, Tokenizer tokenizer, InvertedIndex invertedIndex,
-                        TfIdfRanker ranker) {
+                        TfIdfRanker ranker, SnippetGenerator snippetGenerator) {
         this.documentLoader = Objects.requireNonNull(documentLoader, "Document loader cannot be null");
         this.tokenizer = Objects.requireNonNull(tokenizer, "Tokenizer cannot be null");
         this.invertedIndex = Objects.requireNonNull(invertedIndex, "Inverted index cannot be null");
         this.ranker = Objects.requireNonNull(ranker, "Ranker cannot be null");
+        this.snippetGenerator = Objects.requireNonNull(snippetGenerator, "Snippet generator cannot be null");
+    }
+
+    /**
+     * Creates a search engine using the default snippet generator.
+     */
+    public SearchEngine(DocumentLoader documentLoader, Tokenizer tokenizer, InvertedIndex invertedIndex,
+                        TfIdfRanker ranker) {
+        this(documentLoader, tokenizer, invertedIndex, ranker, new SnippetGenerator(tokenizer));
     }
 
     /**
@@ -86,7 +98,11 @@ public class SearchEngine {
             candidateIds.addAll(invertedIndex.search(term));
         }
 
-        return ranker.rank(candidateIds, queryTerms, invertedIndex);
+        List<SearchResult> rankedResults = ranker.rank(candidateIds, queryTerms, invertedIndex);
+        return rankedResults.stream()
+                .map(result -> new SearchResult(result.document(), result.score(), result.matchedTerms(),
+                        snippetGenerator.generate(result.document(), queryTerms, DEFAULT_MAX_SNIPPET_LENGTH)))
+                .toList();
     }
 
     /**

@@ -5,6 +5,7 @@ import org.junit.jupiter.api.Test;
 import java.nio.file.Path;
 import java.util.HashSet;
 import java.util.Set;
+import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotEquals;
@@ -46,6 +47,18 @@ class SearchResultTest {
         assertEquals(result, equal);
         assertEquals(result.hashCode(), equal.hashCode());
         assertNotEquals(result, different);
+    }
+
+    @Test
+    void defensivelyCopiesSnippetsAndRejectsNullSnippetList() {
+        Snippet snippet = new Snippet("Java", 0, 4, 1, 1, Set.of("java"));
+        java.util.ArrayList<Snippet> source = new java.util.ArrayList<>(List.of(snippet));
+        SearchResult result = new SearchResult(document(), 0.5, Set.of("java"), source);
+        source.clear();
+
+        assertEquals(List.of(snippet), result.snippets());
+        assertThrows(UnsupportedOperationException.class, result.snippets()::clear);
+        assertThrows(NullPointerException.class, () -> new SearchResult(document(), 0.5, Set.of("java"), null));
     }
 
     private static Document document() {
