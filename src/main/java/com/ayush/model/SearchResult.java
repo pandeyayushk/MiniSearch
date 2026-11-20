@@ -27,6 +27,9 @@ public record SearchResult(Document document, int score, Set<String> matchedTerm
         if (matchedTerms.isEmpty()) {
             throw new IllegalArgumentException("Matched terms cannot be empty");
         }
+        if (score != matchedTerms.size()) {
+            throw new IllegalArgumentException("Score must equal the number of matched terms");
+        }
         matchedTerms = Set.copyOf(matchedTerms);
     }
 }
