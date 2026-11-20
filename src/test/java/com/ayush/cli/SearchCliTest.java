@@ -86,6 +86,18 @@ class SearchCliTest {
     }
 
     @Test
+    void reportsInvalidDocumentContentAsLoadingFailureNotDirectoryFailure() throws IOException {
+        Path folder = Files.createDirectory(temporaryDirectory.resolve("invalid-content"));
+        Files.createFile(folder.resolve("blank.md"));
+
+        String output = run("index " + folder + "\nexit\n");
+
+        assertTrue(output.contains("Could not load documents:"));
+        assertTrue(!output.contains("Invalid directory:"));
+        assertTrue(output.contains("Document content cannot be blank"));
+    }
+
+    @Test
     void handlesEndOfInputWithoutManualInteraction() {
         String output = run("");
 

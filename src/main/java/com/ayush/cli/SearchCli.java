@@ -8,6 +8,7 @@ import com.ayush.persistence.IndexPersistence;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.PrintStream;
+import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.Locale;
 import java.util.Objects;
@@ -106,8 +107,19 @@ public class SearchCli {
             output.println("Usage: index <folder>");
             return;
         }
+        Path path;
         try {
-            Path path = Path.of(directory);
+            path = Path.of(directory);
+        } catch (IllegalArgumentException exception) {
+            output.println("Invalid directory: " + exception.getMessage());
+            return;
+        }
+        if (!Files.exists(path) || !Files.isDirectory(path)) {
+            output.println("Invalid directory: path does not exist or is not a directory: " + path);
+            return;
+        }
+
+        try {
             searchEngine.indexDirectory(path);
             output.println("Indexed directory: " + path);
             output.println("Documents indexed: " + searchEngine.getIndexedDocumentCount());
@@ -120,7 +132,7 @@ public class SearchCli {
                 }
             }
         } catch (IllegalArgumentException exception) {
-            output.println("Invalid directory: " + exception.getMessage());
+            output.println("Could not load documents: " + exception.getMessage());
         } catch (IOException exception) {
             output.println("Could not index directory: " + exception.getMessage());
         }
